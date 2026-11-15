@@ -75,25 +75,32 @@ const HISTORICAL_DATA = [
 ];
 
 const RANGE_MONTHS = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12, '5Y': 60 };
-const CURRENT_VALUE = 160.25;
+const AS_OF = parseDate('2025-06-18');
+const ACCENT = '#6ee7b7';
+
+Chart.defaults.color = '#8b93a7';
+Chart.defaults.borderColor = '#2a3040';
+Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
+
+function parseDate(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  return new Date(year, month - 1, day);
+}
 
 function filterByRange(range) {
-  const now = new Date('2025-06-18');
   const months = RANGE_MONTHS[range];
-  const cutoff = new Date(now);
+  const cutoff = new Date(AS_OF);
   cutoff.setMonth(cutoff.getMonth() - months);
-  return HISTORICAL_DATA.filter(d => new Date(d.date) >= cutoff);
+  return HISTORICAL_DATA.filter(d => parseDate(d.date) >= cutoff);
 }
 
 function formatDate(dateStr, range) {
-  const d = new Date(dateStr);
+  const d = parseDate(dateStr);
   if (range === '1M') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
-  if (range === '5Y') return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
 }
 
-function initApp(theme) {
-  const { primary, bg, fg, muted, border, radius, fontFamily } = theme;
+function initApp() {
   let currentRange = '1Y';
   let chart = null;
 
@@ -101,15 +108,43 @@ function initApp(theme) {
     return filterByRange(currentRange);
   }
 
+  function renderSummary(data) {
+    const first = data[0];
+    const last = data[data.length - 1];
+    const high = Math.max(...data.map(d => d.value));
+    const low = Math.min(...data.map(d => d.value));
+    const change = last.value - first.value;
+    const pct = first.value !== 0 ? (change / first.value) * 100 : 0;
+    const up = change >= 0;
+    const changeClass = up ? 'change-up' : 'change-down';
+    const sign = up ? '+' : '';
+    const cards = [
+      { label: 'Latest rate', value: last.value.toFixed(2), sub: 'JPY per USD' },
+      { label: 'Period start', value: first.value.toFixed(2), sub: formatDate(first.date, currentRange) },
+      { label: 'High', value: high.toFixed(2), sub: 'In range' },
+      { label: 'Low', value: low.toFixed(2), sub: 'In range' },
+      { label: 'Change', value: `${sign}${change.toFixed(2)}`, sub: 'Start to latest', valueClass: changeClass },
+      { label: '% change', value: `${sign}${pct.toFixed(2)}%`, sub: 'Start to latest', valueClass: changeClass },
+    ];
+    document.getElementById('summary-grid').innerHTML = cards.map(card => `
+      <article class="stat-card">
+        <div class="label">${card.label}</div>
+        <div class="value${card.valueClass ? ` ${card.valueClass}` : ''}">${card.value}</div>
+        <div class="sub">${card.sub}</div>
+      </article>
+    `).join('');
+  }
+
   function createChart() {
-    const ctx = document.getElementById('rateChart').getContext('2d');
+    const canvas = document.getElementById('rateChart');
+    const ctx = canvas.getContext('2d');
     const data = getFilteredData();
 
     if (chart) chart.destroy();
 
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, primary + '33');
-    gradient.addColorStop(1, primary + '05');
+    const gradient = ctx.createLinearGradient(0, 0, 0, 320);
+    gradient.addColorStop(0, ACCENT + '55');
+    gradient.addColorStop(1, ACCENT + '05');
 
     chart = new Chart(ctx, {
       type: 'line',
@@ -118,13 +153,13 @@ function initApp(theme) {
         datasets: [{
           label: 'USD/JPY',
           data: data.map(d => d.value),
-          borderColor: primary,
+          borderColor: ACCENT,
           backgroundColor: gradient,
           borderWidth: 2,
           pointRadius: data.length > 24 ? 0 : 4,
           pointHoverRadius: 6,
-          pointBackgroundColor: primary,
-          pointBorderColor: '#fff',
+          pointBackgroundColor: ACCENT,
+          pointBorderColor: '#171a22',
           pointBorderWidth: 2,
           fill: true,
           tension: 0.3,
@@ -137,15 +172,17 @@ function initApp(theme) {
         plugins: {
           legend: { display: false },
           tooltip: {
-            backgroundColor: fg,
-            titleColor: bg,
-            bodyColor: bg,
+            backgroundColor: '#1e2230',
+            titleColor: '#e8eaef',
+            bodyColor: '#e8eaef',
+            borderColor: '#2a3040',
+            borderWidth: 1,
             padding: 12,
-            cornerRadius: parseInt(radius) > 20 ? 20 : parseInt(radius),
-            titleFont: { family: fontFamily },
-            bodyFont: { family: fontFamily },
+            cornerRadius: 8,
+            titleFont: { family: Chart.defaults.font.family },
+            bodyFont: { family: Chart.defaults.font.family },
             callbacks: {
-              label: ctx => `¥${ctx.parsed.y.toFixed(2)}`
+              label: item => `¥${item.parsed.y.toFixed(2)}`
             }
           }
         },
@@ -153,19 +190,19 @@ function initApp(theme) {
           x: {
             grid: { display: false },
             ticks: {
-              color: muted,
-              font: { family: fontFamily, size: 11 },
+              color: '#8b93a7',
+              font: { family: Chart.defaults.font.family, size: 11 },
               maxTicksLimit: 12,
               maxRotation: 0,
             },
             border: { display: false },
           },
           y: {
-            grid: { color: border + '44' },
+            grid: { color: '#2a3040' },
             ticks: {
-              color: muted,
-              font: { family: fontFamily, size: 11 },
-              callback: v => '¥' + v.toFixed(0),
+              color: '#8b93a7',
+              font: { family: Chart.defaults.font.family, size: 11 },
+              callback: value => '¥' + value.toFixed(0),
             },
             border: { display: false },
           }
@@ -186,9 +223,9 @@ function initApp(theme) {
       const changeClass = isUp ? 'change-up' : 'change-down';
       return `<tr>
         <td>${formatDate(d.date, currentRange)}</td>
-        <td>¥${d.value.toFixed(2)}</td>
-        <td class="${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}</td>
-        <td class="${changeClass}">${isUp ? '+' : ''}${pct.toFixed(2)}%</td>
+        <td class="num">¥${d.value.toFixed(2)}</td>
+        <td class="num ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}</td>
+        <td class="num ${changeClass}">${isUp ? '+' : ''}${pct.toFixed(2)}%</td>
       </tr>`;
     }).reverse().join('');
   }
@@ -196,8 +233,10 @@ function initApp(theme) {
   function setRange(range) {
     currentRange = range;
     document.querySelectorAll('.range-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.range === range);
+      btn.classList.toggle('is-active', btn.dataset.range === range);
     });
+    const data = getFilteredData();
+    renderSummary(data);
     createChart();
     renderTable();
   }
@@ -208,3 +247,5 @@ function initApp(theme) {
 
   setRange('1Y');
 }
+
+initApp();
