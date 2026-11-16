@@ -479,12 +479,28 @@ const HISTORICAL_DATA = [
   { date: '2025-03-01', value: 149.98 },
   { date: '2025-04-01', value: 142.97 },
   { date: '2025-05-01', value: 144.30 },
-  { date: '2025-06-01', value: 155.68 },
-  { date: '2025-06-18', value: 160.25 },
+  { date: '2025-06-01', value: 144.48 },
+  { date: '2025-07-01', value: 147.20 },
+  { date: '2025-08-01', value: 147.48 },
+  { date: '2025-09-01', value: 147.86 },
+  { date: '2025-10-01', value: 151.35 },
+  { date: '2025-11-01', value: 155.14 },
+  { date: '2025-12-01', value: 155.92 },
+  { date: '2026-01-01', value: 156.65 },
+  { date: '2026-02-01', value: 155.10 },
+  { date: '2026-03-01', value: 158.68 },
+  { date: '2026-04-01', value: 159.12 },
+  { date: '2026-05-01', value: 158.15 },
+  { date: '2026-06-01', value: 160.77 },
+  { date: '2026-07-01', value: 162.33 },
+  { date: '2026-08-01', value: 158.85 },
+  { date: '2026-09-01', value: 156.42 },
+  { date: '2026-10-01', value: 157.97 },
+  { date: '2026-11-16', value: 159.60 },
 ];
 
 const RANGE_MONTHS = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12, '5Y': 60, '10Y': 120, '20Y': 240, '30Y': 360, '40Y': 480 };
-const AS_OF = parseDate('2025-06-18');
+const AS_OF = parseDate(HISTORICAL_DATA[HISTORICAL_DATA.length - 1].date);
 const ACCENT = '#6ee7b7';
 
 Chart.defaults.color = '#8b93a7';
@@ -500,13 +516,22 @@ function filterByRange(range) {
   const months = RANGE_MONTHS[range];
   const cutoff = new Date(AS_OF);
   cutoff.setMonth(cutoff.getMonth() - months);
-  return HISTORICAL_DATA.filter(d => parseDate(d.date) >= cutoff);
+  const startIdx = HISTORICAL_DATA.findIndex(d => parseDate(d.date) >= cutoff);
+  if (startIdx === -1) return [];
+  const inRange = HISTORICAL_DATA.slice(startIdx);
+  // A mid-month latest reading can leave the 1M window with a single point.
+  if (inRange.length === 1 && startIdx > 0) return HISTORICAL_DATA.slice(startIdx - 1);
+  return inRange;
 }
 
 function formatDate(dateStr, range) {
   const d = parseDate(dateStr);
   if (range === '1M') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
+}
+
+function formatAsOf(dateStr) {
+  return parseDate(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
 function initApp() {
@@ -653,6 +678,10 @@ function initApp() {
   document.querySelectorAll('.range-btn').forEach(btn => {
     btn.addEventListener('click', () => setRange(btn.dataset.range));
   });
+
+  const asOfLabel = formatAsOf(HISTORICAL_DATA[HISTORICAL_DATA.length - 1].date);
+  document.getElementById('as-of').textContent = `As of ${asOfLabel}`;
+  document.getElementById('latest-reading').textContent = `Monthly USD/JPY rates. Latest reading ${asOfLabel}.`;
 
   setRange('1Y');
 }
