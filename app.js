@@ -496,11 +496,12 @@ const HISTORICAL_DATA = [
   { date: '2026-08-01', value: 158.85 },
   { date: '2026-09-01', value: 156.42 },
   { date: '2026-10-01', value: 157.97 },
-  { date: '2026-11-16', value: 159.60 },
+  { date: '2026-11-17', value: 159.30 },
 ];
 
 const RANGE_MONTHS = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12, '5Y': 60, '10Y': 120, '20Y': 240, '30Y': 360, '40Y': 480 };
-const AS_OF = parseDate(HISTORICAL_DATA[HISTORICAL_DATA.length - 1].date);
+const LATEST_RATE_URL = 'https://api.frankfurter.app/latest?from=USD&to=JPY';
+let AS_OF = parseDate(HISTORICAL_DATA[HISTORICAL_DATA.length - 1].date);
 const ACCENT = '#6ee7b7';
 
 Chart.defaults.color = '#8b93a7';
@@ -510,6 +511,28 @@ Chart.defaults.font.family = "'DM Sans', system-ui, sans-serif";
 function parseDate(dateStr) {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
+}
+
+function applyLatestReading(date, value) {
+  const rounded = Math.round(value * 100) / 100;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(rounded)) return;
+  const last = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
+  if (date < last.date) return;
+  const point = { date, value: rounded };
+  // Keep month-start averages, and keep a single reading after the latest month.
+  if (date === last.date || !last.date.endsWith('-01')) {
+    HISTORICAL_DATA[HISTORICAL_DATA.length - 1] = point;
+  } else {
+    HISTORICAL_DATA.push(point);
+  }
+  AS_OF = parseDate(date);
+}
+
+async function refreshLatestReading() {
+  const response = await fetch(LATEST_RATE_URL, { cache: 'no-store' });
+  if (!response.ok) throw new Error(String(response.status));
+  const body = await response.json();
+  applyLatestReading(body.date, body.rates && body.rates.JPY);
 }
 
 function filterByRange(range) {
@@ -534,7 +557,12 @@ function formatAsOf(dateStr) {
   return parseDate(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
-function initApp() {
+async function initApp() {
+  try {
+    await refreshLatestReading();
+  } catch (err) {
+    // The bundled series stays in place when the rate service is unreachable.
+  }
   let currentRange = '1Y';
   let chart = null;
 
