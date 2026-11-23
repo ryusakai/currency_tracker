@@ -1,4 +1,4 @@
-const HISTORICAL_DATA = [
+let HISTORICAL_DATA = [
   { date: '1985-06-01', value: 248.84 },
   { date: '1985-07-01', value: 241.14 },
   { date: '1985-08-01', value: 237.46 },
@@ -500,8 +500,13 @@ const HISTORICAL_DATA = [
 ];
 
 const RANGE_MONTHS = { '1M': 1, '3M': 3, '6M': 6, '1Y': 12, '5Y': 60, '10Y': 120, '20Y': 240, '30Y': 360, '40Y': 480 };
-const LATEST_RATE_URL = 'https://api.frankfurter.app/latest?from=USD&to=JPY';
+const DAILY_RANGES = new Set(['1M', '3M', '6M', '1Y']);
+const SERIES_URL = 'https://api.frankfurter.dev/v2/rates';
+const LATEST_RATE_URL = 'https://api.frankfurter.dev/v2/rate/usd/jpy';
+const LIVE_WINDOW_MONTHS = 13;
+const REFRESH_MS = 15 * 60 * 1000;
 let AS_OF = parseDate(HISTORICAL_DATA[HISTORICAL_DATA.length - 1].date);
+let fetchedAt = null;
 const ACCENT = '#6ee7b7';
 
 Chart.defaults.color = '#8b93a7';
@@ -513,58 +518,171 @@ function parseDate(dateStr) {
   return new Date(year, month - 1, day);
 }
 
-function applyLatestReading(date, value) {
-  const rounded = Math.round(value * 100) / 100;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(rounded)) return;
-  const last = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
-  if (date < last.date) return;
-  const point = { date, value: rounded };
-  // Keep month-start averages, and keep a single reading after the latest month.
-  if (date === last.date || !last.date.endsWith('-01')) {
-    HISTORICAL_DATA[HISTORICAL_DATA.length - 1] = point;
-  } else {
-    HISTORICAL_DATA.push(point);
-  }
-  AS_OF = parseDate(date);
+function isoDate(date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
-async function refreshLatestReading() {
-  const response = await fetch(LATEST_RATE_URL, { cache: 'no-store' });
+function currentDay() {
+  const now = new Date();
+  const local = isoDate(now);
+  const utc = now.toISOString().slice(0, 10);
+  return local > utc ? local : utc;
+}
+
+function readingFrom(date, value) {
+  const rounded = Math.round(Number(value) * 100) / 100;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !Number.isFinite(rounded)) return null;
+  return { date, value: rounded };
+}
+
+function markSeriesEnd() {
+  const newest = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
+  AS_OF = parseDate(newest.date);
+  const today = isoDate(new Date());
+  fetchedAt = newest.date === today || newest.date === currentDay() ? new Date() : null;
+}
+
+function applyLiveSeries(points) {
+  const first = points[0].date;
+  HISTORICAL_DATA = HISTORICAL_DATA.filter(item => item.date < first).concat(points);
+  markSeriesEnd();
+}
+
+function upsertLatestReading(point) {
+  const last = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
+  if (!last || point.date > last.date) HISTORICAL_DATA.push(point);
+  else if (point.date === last.date) HISTORICAL_DATA[HISTORICAL_DATA.length - 1] = point;
+  else return;
+  markSeriesEnd();
+}
+
+async function readJson(response) {
   if (!response.ok) throw new Error(String(response.status));
-  const body = await response.json();
-  applyLatestReading(body.date, body.rates && body.rates.JPY);
+  return response.json();
+}
+
+async function refreshThroughNow() {
+  const end = currentDay();
+  const start = new Date();
+  start.setMonth(start.getMonth() - LIVE_WINDOW_MONTHS);
+  const seriesUrl = `${SERIES_URL}?base=usd&quotes=jpy&from=${isoDate(start)}&to=${end}`;
+  const [seriesResult, latestResult] = await Promise.allSettled([
+    fetch(seriesUrl, { cache: 'no-store' }).then(readJson),
+    fetch(LATEST_RATE_URL, { cache: 'no-store' }).then(readJson),
+  ]);
+
+  let applied = false;
+  if (seriesResult.status === 'fulfilled' && Array.isArray(seriesResult.value)) {
+    const points = [];
+    seriesResult.value.forEach(row => {
+      const point = readingFrom(row && row.date, row && row.rate);
+      if (point) points.push(point);
+    });
+    points.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+    const unique = [];
+    points.forEach(point => {
+      if (unique.length && unique[unique.length - 1].date === point.date) unique[unique.length - 1] = point;
+      else unique.push(point);
+    });
+    if (unique.length) {
+      applyLiveSeries(unique);
+      applied = true;
+    }
+  }
+
+  if (latestResult.status === 'fulfilled') {
+    const body = latestResult.value;
+    const point = readingFrom(body && body.date, body && body.rate);
+    const last = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
+    if (point && (!last || point.date >= last.date)) {
+      upsertLatestReading(point);
+      applied = true;
+    }
+  }
+
+  if (!applied) {
+    const reason = seriesResult.status === 'rejected' ? seriesResult.reason : latestResult.reason;
+    throw reason || new Error('Rate service returned no current readings');
+  }
+}
+
+function monthlyWithLatest(points) {
+  const kept = [];
+  let month = '';
+  points.forEach(point => {
+    const key = point.date.slice(0, 7);
+    if (key === month) return;
+    kept.push(point);
+    month = key;
+  });
+  const last = points[points.length - 1];
+  if (last && kept.length && kept[kept.length - 1].date !== last.date) kept.push(last);
+  return kept;
 }
 
 function filterByRange(range) {
   const months = RANGE_MONTHS[range];
   const cutoff = new Date(AS_OF);
   cutoff.setMonth(cutoff.getMonth() - months);
-  const startIdx = HISTORICAL_DATA.findIndex(d => parseDate(d.date) >= cutoff);
+  let startIdx = HISTORICAL_DATA.findIndex(d => parseDate(d.date) >= cutoff);
   if (startIdx === -1) return [];
+  if (HISTORICAL_DATA.length - startIdx === 1 && startIdx > 0) startIdx -= 1;
   const inRange = HISTORICAL_DATA.slice(startIdx);
-  // A mid-month latest reading can leave the 1M window with a single point.
-  if (inRange.length === 1 && startIdx > 0) return HISTORICAL_DATA.slice(startIdx - 1);
-  return inRange;
+  return DAILY_RANGES.has(range) ? inRange : monthlyWithLatest(inRange);
 }
 
 function formatDate(dateStr, range) {
   const d = parseDate(dateStr);
   if (range === '1M') return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  if (DAILY_RANGES.has(range) || !dateStr.endsWith('-01')) {
+    return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  }
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
 }
 
-function formatAsOf(dateStr) {
-  return parseDate(dateStr).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+function formatAsOfLabel() {
+  const last = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
+  const dateLabel = parseDate(last.date).toLocaleDateString('en-US', {
+    month: 'long',
+    day: 'numeric',
+    year: 'numeric',
+  });
+  if (!fetchedAt) return dateLabel;
+  const time = fetchedAt.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+  return `${dateLabel}, ${time}`;
 }
 
 async function initApp() {
-  try {
-    await refreshLatestReading();
-  } catch (err) {
-    // The bundled series stays in place when the rate service is unreachable.
-  }
   let currentRange = '1Y';
   let chart = null;
+  let refreshing = false;
+
+  function publish() {
+    const asOfLabel = formatAsOfLabel();
+    document.getElementById('as-of').textContent = `As of ${asOfLabel}`;
+    document.getElementById('latest-reading').textContent = `USD/JPY rates through ${asOfLabel}.`;
+    setRange(currentRange);
+  }
+
+  async function loadCurrentRates() {
+    if (refreshing) return;
+    refreshing = true;
+    try {
+      await refreshThroughNow();
+    } catch (err) {
+      // The bundled series stays in place when the rate service is unreachable.
+    } finally {
+      refreshing = false;
+    }
+    publish();
+  }
 
   function getFilteredData() {
     return filterByRange(currentRange);
@@ -707,11 +825,11 @@ async function initApp() {
     btn.addEventListener('click', () => setRange(btn.dataset.range));
   });
 
-  const asOfLabel = formatAsOf(HISTORICAL_DATA[HISTORICAL_DATA.length - 1].date);
-  document.getElementById('as-of').textContent = `As of ${asOfLabel}`;
-  document.getElementById('latest-reading').textContent = `Monthly USD/JPY rates. Latest reading ${asOfLabel}.`;
-
-  setRange('1Y');
+  await loadCurrentRates();
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') loadCurrentRates();
+  });
+  setInterval(loadCurrentRates, REFRESH_MS);
 }
 
 initApp();
