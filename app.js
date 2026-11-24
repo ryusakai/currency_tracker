@@ -643,6 +643,36 @@ function formatDate(dateStr, range) {
   return d.toLocaleDateString('en-US', { year: 'numeric', month: 'short' });
 }
 
+function newsAnchor(item, monthly) {
+  return monthly && item.showOn ? item.showOn : item.date;
+}
+
+function newsForRow(rowDate, previousDate, monthly) {
+  return RATE_NEWS.filter(item => {
+    const anchor = newsAnchor(item, monthly);
+    if (monthly) return anchor.slice(0, 7) === rowDate.slice(0, 7);
+    if (!previousDate) return anchor === rowDate;
+    return anchor > previousDate && anchor <= rowDate;
+  });
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, char => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[char]));
+}
+
+function renderNews(items) {
+  return items.map(item => {
+    if (!/^https:\/\//.test(item.url)) return '';
+    return `<a class="news-link" href="${escapeHtml(item.url)}" target="_blank" rel="noopener noreferrer"><span class="news-headline">${escapeHtml(item.headline)}</span><span class="news-source">${escapeHtml(item.source)}</span></a>`;
+  }).join('');
+}
+
 function formatAsOfLabel() {
   const last = HISTORICAL_DATA[HISTORICAL_DATA.length - 1];
   const dateLabel = parseDate(last.date).toLocaleDateString('en-US', {
@@ -794,6 +824,9 @@ async function initApp() {
   function renderTable() {
     const tbody = document.getElementById('rateTableBody');
     const data = getFilteredData();
+    const monthly = !DAILY_RANGES.has(currentRange);
+    const lastOfMonth = new Map();
+    if (monthly) data.forEach((d, i) => lastOfMonth.set(d.date.slice(0, 7), i));
     tbody.innerHTML = data.map((d, i) => {
       const prev = i > 0 ? data[i - 1].value : d.value;
       const change = d.value - prev;
@@ -801,11 +834,15 @@ async function initApp() {
       const isUp = change >= 0;
       const arrow = isUp ? '▲' : '▼';
       const changeClass = isUp ? 'change-up' : 'change-down';
+      const previousDate = i > 0 ? data[i - 1].date : null;
+      const showNews = !monthly || lastOfMonth.get(d.date.slice(0, 7)) === i;
+      const news = showNews ? newsForRow(d.date, previousDate, monthly) : [];
       return `<tr>
         <td>${formatDate(d.date, currentRange)}</td>
         <td class="num">¥${d.value.toFixed(2)}</td>
         <td class="num ${changeClass}">${arrow} ${Math.abs(change).toFixed(2)}</td>
         <td class="num ${changeClass}">${isUp ? '+' : ''}${pct.toFixed(2)}%</td>
+        <td class="news">${renderNews(news)}</td>
       </tr>`;
     }).reverse().join('');
   }
