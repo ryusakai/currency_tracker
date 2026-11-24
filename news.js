@@ -1,5 +1,6 @@
-// Notable USD/JPY events. `date` is when it happened. `showOn` places an
+// Events that moved USD/JPY. `date` is when it happened. `showOn` places an
 // event on the later monthly row when that is the row whose move it explains.
+// Headlines include world events, not only stories about the yen itself.
 const RATE_NEWS = [
   {
     date: '1985-09-22',
@@ -15,6 +16,34 @@ const RATE_NEWS = [
     url: 'https://www.bis.org/publ/work198.htm',
   },
   {
+    date: '1987-10-19',
+    showOn: '1987-11-01',
+    headline: 'Black Monday: U.S. stocks fall 22% in one session',
+    source: 'Federal Reserve History',
+    url: 'https://www.federalreservehistory.org/essays/stock-market-crash-of-1987',
+  },
+  {
+    date: '1990-08-02',
+    showOn: '1990-09-01',
+    headline: 'Iraq invades Kuwait, setting off the Gulf crisis',
+    source: 'U.S. Department of State',
+    url: 'https://history.state.gov/milestones/1989-1992/gulf-war',
+  },
+  {
+    date: '1991-02-28',
+    showOn: '1991-03-01',
+    headline: 'The Gulf War ends as coalition forces drive Iraq from Kuwait',
+    source: 'U.S. Department of State',
+    url: 'https://history.state.gov/milestones/1989-1992/gulf-war',
+  },
+  {
+    date: '1995-01-17',
+    showOn: '1995-03-01',
+    headline: 'The Kobe earthquake kills thousands and shuts down a major port',
+    source: 'U.S. Geological Survey',
+    url: 'https://earthquake.usgs.gov/learn/today/index.php?day=16&month=1&submit=View+Date',
+  },
+  {
     date: '1995-04-19',
     headline: 'Yen surges through 80 per dollar, and the G7 calls for a reversal',
     source: 'NBER',
@@ -27,10 +56,43 @@ const RATE_NEWS = [
     url: 'https://conference.nber.org/confer/2023/EASE23/Kuroda.pdf',
   },
   {
+    date: '1997-07-02',
+    showOn: '1997-11-01',
+    headline: 'Thailand devalues the baht and the Asian financial crisis begins',
+    source: 'Federal Reserve History',
+    url: 'https://www.federalreservehistory.org/essays/asian-financial-crisis',
+  },
+  {
+    date: '1998-08-17',
+    showOn: '1998-09-01',
+    headline: 'Russia devalues the ruble and defaults on domestic debt',
+    source: 'International Monetary Fund',
+    url: 'https://www.elibrary.imf.org/display/book/9781557757937/ch02.xml',
+  },
+  {
     date: '1998-10-07',
     headline: 'Yen surges as carry trades unwind after LTCM’s near-collapse',
     source: 'Reuters',
     url: 'https://www.reuters.com/article/business/timeline-yen-hits-15-year-high-vs-dollar-idUSTRE68D26G/',
+  },
+  {
+    date: '2001-09-11',
+    headline: 'Attacks in the United States close markets, and the Fed cuts rates',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/boarddocs/press/general/2001/20010917/',
+  },
+  {
+    date: '2008-03-16',
+    headline: 'Bear Stearns collapses and is sold to JPMorgan',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/regreform/reform-bearstearns.htm',
+  },
+  {
+    date: '2008-09-15',
+    showOn: '2008-10-01',
+    headline: 'Lehman Brothers files for bankruptcy',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/newsevents/testimony/bernanke20100420a.htm',
   },
   {
     date: '2008-10-24',
@@ -39,10 +101,29 @@ const RATE_NEWS = [
     url: 'https://www.reuters.com/article/business/timeline-yen-hits-15-year-high-vs-dollar-idUSTRE68D26G/',
   },
   {
+    date: '2008-12-16',
+    headline: 'Federal Reserve cuts its policy rate to near zero',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20081216b.htm',
+  },
+  {
+    date: '2009-03-18',
+    headline: 'Federal Reserve starts buying Treasuries and mortgage bonds',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20090318a.htm',
+  },
+  {
     date: '2011-03-18',
     headline: 'G7 sells yen after the earthquake drives it to a record',
     source: 'Reuters',
     url: 'https://www.reuters.com/article/business/g7-central-banks-in-rare-currency-action-after-yen-surge-idUSL3E7EH14Q/',
+  },
+  {
+    date: '2012-12-16',
+    showOn: '2013-01-01',
+    headline: 'Shinzo Abe returns as prime minister promising large-scale stimulus',
+    source: 'Associated Press',
+    url: 'https://apnews.com/article/japan-shinzo-abe-timeline-3bff720a48b60b4c8907b8e71bcf41e8',
   },
   {
     date: '2013-04-04',
@@ -58,6 +139,12 @@ const RATE_NEWS = [
     url: 'https://www.boj.or.jp/en/mopo/mpmdeci/mpr_2014/k141031a.pdf',
   },
   {
+    date: '2016-06-23',
+    headline: 'Britain votes to leave the European Union',
+    source: 'UK Government',
+    url: 'https://www.gov.uk/government/topical-events/eu-referendum',
+  },
+  {
     date: '2016-11-09',
     showOn: '2016-12-01',
     headline: 'Dollar jumps against the yen after the U.S. election',
@@ -65,10 +152,29 @@ const RATE_NEWS = [
     url: 'https://www.cnbc.com/2016/11/09/dollar-extends-gains-on-dramatic-trump-turnaround-rally.html',
   },
   {
+    date: '2020-03-15',
+    headline: 'Federal Reserve makes an emergency cut as the pandemic shuts activity',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20200315a.htm',
+  },
+  {
+    date: '2022-02-24',
+    showOn: '2022-03-01',
+    headline: 'Russia launches a full-scale invasion of Ukraine',
+    source: 'United Nations',
+    url: 'https://news.un.org/en/story/2022/02/1112732',
+  },
+  {
     date: '2022-03-16',
     headline: 'Federal Reserve begins raising rates, widening the gap with Japan',
     source: 'Federal Reserve',
     url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20220316a.htm',
+  },
+  {
+    date: '2022-06-15',
+    headline: 'Federal Reserve raises rates by three-quarters of a point',
+    source: 'Federal Reserve',
+    url: 'https://www.federalreserve.gov/newsevents/pressreleases/monetary20220615a.htm',
   },
   {
     date: '2022-09-22',
@@ -82,6 +188,12 @@ const RATE_NEWS = [
     headline: 'Japan intervenes again as the dollar nears 152 yen',
     source: 'Reuters',
     url: 'https://www.reuters.com/markets/asia/japan-intervened-buying-yen-foreign-exchange-market-late-friday-sources-2022-10-22/',
+  },
+  {
+    date: '2023-03-10',
+    headline: 'Regulators close Silicon Valley Bank after a deposit run',
+    source: 'FDIC',
+    url: 'https://www.fdic.gov/news/press-releases/2023/pr23016.html',
   },
   {
     date: '2024-07-31',
@@ -101,6 +213,13 @@ const RATE_NEWS = [
     headline: 'Yen hits a three-month low after the ruling coalition loses its majority',
     source: 'Reuters',
     url: 'https://www.reuters.com/markets/currencies/yen-slips-japans-election-result-clouds-boj-rate-hike-prospects-2024-10-27/',
+  },
+  {
+    date: '2024-11-06',
+    showOn: '2024-12-01',
+    headline: 'Donald Trump is elected president of the United States',
+    source: 'Reuters',
+    url: 'https://www.reuters.com/world/us/trump-vs-harris-us-voters-head-polls-turbulent-campaign-concludes-2024-11-05/',
   },
   {
     date: '2025-04-03',
